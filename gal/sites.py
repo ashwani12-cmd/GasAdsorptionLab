@@ -246,6 +246,128 @@ class SurfaceGraph:
                     self.triangles.add(frozenset(node[0] for node in triangle_nodes))
 
 
+class _SiteEngine:
+    """Base class for geometry-family site engines.
+
+    Engines intentionally share the periodic graph implementation; only the
+    interpretation of graph motifs differs between crystal families.
+    """
+
+    def __init__(self, finder: "SiteFinder") -> None:
+        self.finder = finder
+
+    def find_top(self, element: str | None, tolerance: float | None) -> list[Site]:
+        return self.finder._find_top_generic(element, tolerance)
+
+    def find_bridge(self, cutoff: float | None) -> list[Site]:
+        return self.finder._find_bridge_generic(cutoff)
+
+    def find_hollow(self, cutoff: float | None) -> list[Site]:
+        return self.finder._find_hollow_generic(cutoff)
+
+    def find_all(self) -> list[Site]:
+        return [*self.find_top(None, None), *self.find_bridge(None), *self.find_hollow(None)]
+
+
+class _Hexagonal2DEngine(_SiteEngine):
+    """Layered hexagonal materials, including primitive dichalcogenides."""
+
+    def find_all(self) -> list[Site]:
+        sites = super().find_all()
+        layers = self.finder._layer_indices()
+        if len(layers) < 2:
+            return sites
+        bottom = layers[-1]
+        # A monatomic sheet has identical top and bottom geometry.  Returning
+        # it once preserves the long-standing one-face API behaviour.
+        if set(bottom) == set(layers[0]):
+            return sites
+        sites.extend(self.finder._find_layer_sites(bottom, "Bottom", "Bottom Bridge", "Bottom Hollow"))
+        return sites
+
+
+class _FCC111Engine(_SiteEngine):
+    """Close-packed (111) detector with local FCC/HCP stacking labels."""
+
+    def find_hollow(self, cutoff: float | None) -> list[Site]:
+        sites = self.finder._find_hollow_generic(cutoff)
+        layers = self.finder._layer_indices()
+        below = layers[1] if len(layers) > 1 else []
+        if not below:
+            return sites
+        scaled = self.finder.atoms.get_scaled_positions(wrap=True)
+        for site in sites:
+            site_scaled = self.finder.atoms.cell.scaled_positions([site.position])[0]
+            nearest = min(
+                np.linalg.norm((site_scaled[:2] - scaled[index, :2]) - np.rint(site_scaled[:2] - scaled[index, :2]))
+                for index in below
+            )
+            site.name = (SiteType.HCP if nearest < 0.12 else SiteType.FCC).value
+            site.metadata = {**(site.metadata or {}), "kind": str(site.name).lower(), "stacking_distance": nearest}
+        return sites
+
+
+class _SquareSurfaceEngine(_SiteEngine):
+    """Square-net detector shared by FCC(100), BCC, and ionic (001) slabs."""
+
+    def find_fourfold(self) -> list[Site]:
+        top_indices = self.finder._top_indices()
+        if not top_indices:
+            return []
+        first, second = self.finder.atoms.cell.array[:2]
+        z_surface = self.finder._surface_height()
+        # A checkerboard ionic (001) layer has two surface sublattices in the
+        # conventional square cell; its empty fourfold centres are quarter-
+        # cell offsets rather than the alternate sublattice itself.
+        fraction = 0.25 if self.finder.detect_surface_type() is SurfaceType.ROCKSALT001 else 0.5
+        sites: list[Site] = []
+        for index in top_indices:
+            position = self.finder.atoms.positions[index] + fraction * (first + second)
+            position[2] = z_surface
+            sites.append(
+                self.finder._make_site(
+                    SiteType.FOURFOLD.value,
+                    position,
+                    (index,),
+                    surface_layer=0,
+                    metadata={"kind": "fourfold", "layer": 0},
+                )
+            )
+        return self.finder.remove_duplicates(sites)
+
+    def find_all(self) -> list[Site]:
+        return [*super().find_all(), *self.find_fourfold()]
+
+
+class _BCCEngine(_SquareSurfaceEngine):
+    """BCC family detector, adding second-neighbour long bridges."""
+
+    def find_long_bridge(self) -> list[Site]:
+        first_neighbor = self.finder._estimate_neighbor_distance()
+        graph = self.finder._get_graph(cutoff=first_neighbor * 1.9)
+        z_surface = self.finder._surface_height()
+        sites: list[Site] = []
+        for left_image, right_image in graph._edge_records:
+            distance = np.linalg.norm(graph._image_positions[left_image] - graph._image_positions[right_image])
+            if distance <= first_neighbor * 1.1:
+                continue
+            midpoint = 0.5 * (graph._image_positions[left_image] + graph._image_positions[right_image])
+            midpoint[2] = z_surface
+            sites.append(
+                self.finder._make_site(
+                    SiteType.LONG_BRIDGE.value,
+                    midpoint,
+                    tuple(sorted({left_image[0], right_image[0]})),
+                    surface_layer=0,
+                    metadata={"kind": "long_bridge", "layer": 0},
+                )
+            )
+        return self.finder.remove_duplicates(sites)
+
+    def find_all(self) -> list[Site]:
+        return [*super().find_all(), *self.find_long_bridge()]
+
+
 class SiteFinder:
     """Detect adsorption sites on a surface."""
 
@@ -336,6 +458,23 @@ class SiteFinder:
         else:
             self._surface_type = SurfaceType.UNKNOWN
         return self._surface_type
+
+    def _engine(self) -> _SiteEngine:
+        """Return the geometry-specialized engine for this surface."""
+        surface_type = self.detect_surface_type()
+        if surface_type is SurfaceType.HEXAGONAL_2D:
+            return _Hexagonal2DEngine(self)
+        if surface_type is SurfaceType.FCC111:
+            return _FCC111Engine(self)
+        if surface_type in {SurfaceType.BCC110, SurfaceType.BCC100}:
+            return _BCCEngine(self)
+        if surface_type in {
+            SurfaceType.FCC100,
+            SurfaceType.ROCKSALT001,
+            SurfaceType.PEROVSKITE001,
+        }:
+            return _SquareSurfaceEngine(self)
+        return _SiteEngine(self)
 
     def surface_atoms(self, tolerance: float = 0.5) -> np.ndarray:
         """Return indices of top-surface atoms.
@@ -441,7 +580,9 @@ class SiteFinder:
     def _wrap_position(self, position: np.ndarray) -> np.ndarray:
         """Wrap a Cartesian position into the unit cell."""
         wrapped = self.atoms.cell.scaled_positions([position])[0]
-        wrapped = np.mod(wrapped, 1.0)
+        for axis, periodic in enumerate(self.atoms.pbc):
+            if periodic:
+                wrapped[axis] %= 1.0
         return self.atoms.cell.cartesian_positions([wrapped])[0]
 
     def _make_site(
@@ -469,7 +610,7 @@ class SiteFinder:
             layer=layer,
         )
 
-    def find_top(self, element: str | None = None, tolerance: float | None = None) -> list[Site]:
+    def _find_top_generic(self, element: str | None = None, tolerance: float | None = None) -> list[Site]:
         """Return top-site candidates for the requested element.
 
         Parameters
@@ -508,7 +649,7 @@ class SiteFinder:
         """Backward-compatible wrapper for finding top W sites."""
         return self.find_top(element="W", tolerance=tolerance)
 
-    def find_bridge(self, cutoff: float | None = None) -> list[Site]:
+    def _find_bridge_generic(self, cutoff: float | None = None) -> list[Site]:
         """Find bridge sites from periodic neighbors of the top surface layer."""
         graph = self._get_graph(cutoff=cutoff)
         z_surface = self._surface_height()
@@ -544,7 +685,7 @@ class SiteFinder:
 
         return self.remove_duplicates(sites)
 
-    def find_hollow(self, cutoff: float | None = None) -> list[Site]:
+    def _find_hollow_generic(self, cutoff: float | None = None) -> list[Site]:
         """Find hollow sites from periodic triangles in the top-surface graph."""
         graph = self._get_graph(cutoff=cutoff)
         z_surface = self._surface_height()
@@ -577,13 +718,54 @@ class SiteFinder:
 
         return self.remove_duplicates(sites)
 
+    def _find_layer_sites(
+        self,
+        indices: list[int],
+        top_name: str,
+        bridge_name: str,
+        hollow_name: str,
+    ) -> list[Site]:
+        """Generate periodic graph sites on an explicitly selected layer."""
+        if not indices:
+            return []
+        graph = SurfaceGraph(self.atoms, indices, self._resolve_cutoff(None))
+        height = float(np.mean(self.atoms.positions[indices, 2]))
+        sites: list[Site] = []
+        for index in indices:
+            position = self.atoms.positions[index].copy()
+            position[2] = height
+            sites.append(self._make_site(top_name, position, (index,), surface_layer=-1, metadata={"kind": "bottom", "layer": -1}))
+        for left_image, right_image in graph._edge_records:
+            position = 0.5 * (graph._image_positions[left_image] + graph._image_positions[right_image])
+            position[2] = height
+            sites.append(self._make_site(bridge_name, position, tuple(sorted({left_image[0], right_image[0]})), surface_layer=-1, metadata={"kind": "bottom_bridge", "layer": -1}))
+        for triangle in graph._triangle_records:
+            position = np.mean([graph._image_positions[node] for node in triangle], axis=0)
+            position[2] = height
+            sites.append(self._make_site(hollow_name, position, tuple(sorted({node[0] for node in triangle})), surface_layer=-1, metadata={"kind": "bottom_hollow", "layer": -1}))
+        return self.remove_duplicates(sites)
+
+    # Public API: these methods dispatch but retain their historical
+    # signatures and return types.
+    def find_top(self, element: str | None = None, tolerance: float | None = None) -> list[Site]:
+        """Find top sites using the engine selected from surface geometry."""
+        return self._engine().find_top(element, tolerance)
+
+    def find_bridge(self, cutoff: float | None = None) -> list[Site]:
+        """Find top-face bridge sites using the selected surface engine."""
+        return self._engine().find_bridge(cutoff)
+
+    def find_hollow(self, cutoff: float | None = None) -> list[Site]:
+        """Find top-face hollow sites using the selected surface engine."""
+        return self._engine().find_hollow(cutoff)
+
     def remove_duplicates(self, sites: list[Site], tol: float = 1e-3) -> list[Site]:
         """Remove duplicate adsorption sites after wrapping positions into the cell."""
         unique: list[Site] = []
         for site in sites:
             duplicate = False
             for other in unique:
-                if np.linalg.norm(site.position - other.position) < tol:
+                if site.name == other.name and np.linalg.norm(site.position - other.position) < tol:
                     duplicate = True
                     break
             if not duplicate:
@@ -592,14 +774,21 @@ class SiteFinder:
 
     def find_all(self) -> list[Site]:
         """Return all detected site candidates sorted by site type."""
-        sites = [*self.find_top(), *self.find_bridge(), *self.find_hollow()]
+        sites = self._engine().find_all()
         unique_sites = self.remove_duplicates(sites)
         type_order = {
             "Top": 0,
             "Top_Se": 0,
             "Top_W": 0,
             "Bridge": 1,
-            "Hollow": 2,
+            "Bottom": 1,
+            "Bottom Bridge": 2,
+            "Hollow": 3,
+            "Bottom Hollow": 4,
+            "FCC": 3,
+            "HCP": 3,
+            "Fourfold": 3,
+            "Long Bridge": 2,
         }
         return sorted(
             unique_sites,
