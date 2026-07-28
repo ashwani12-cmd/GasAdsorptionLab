@@ -274,6 +274,24 @@ class _Hexagonal2DEngine(_SiteEngine):
 
     def find_all(self) -> list[Site]:
         sites = super().find_all()
+        top_indices = self.finder._top_indices()
+        # The honeycomb primitive cell has a six-membered ring rather than a
+        # triangular three-atom face, so it is not represented by the generic
+        # triangle graph.  Its unique ring centre is fixed by lattice
+        # geometry and does not depend on the two atom species.
+        if len(top_indices) == 2 and not any(site.name == SiteType.HOLLOW.value for site in sites):
+            first, second = self.finder.atoms.cell.array[:2]
+            position = self.finder.atoms.positions[top_indices[0]] + (first + second) / 3.0
+            position[2] = self.finder._surface_height()
+            sites.append(
+                self.finder._make_site(
+                    SiteType.HOLLOW.value,
+                    position,
+                    tuple(top_indices),
+                    surface_layer=0,
+                    metadata={"kind": "hollow", "coordination": 6, "layer": 0},
+                )
+            )
         layers = self.finder._layer_indices()
         if len(layers) < 2:
             return sites
