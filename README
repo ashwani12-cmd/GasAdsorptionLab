@@ -14,6 +14,37 @@ Features
 ✔ Symmetry reduction (coming)
 ✔ Automatic gas placement (coming)
 
+Universal adsorption-site engine
+--------------------------------
+
+`SiteFinder` selects a geometry-specific detector automatically.  The public
+methods remain the same for every surface family:
+
+```python
+from gal.sites import SiteFinder
+
+finder = SiteFinder(atoms)
+print(finder.detect_surface_type())
+top_sites = finder.find_top()
+bridge_sites = finder.find_bridge()
+hollow_sites = finder.find_hollow()
+all_sites = finder.find_all()
+```
+
+The current geometry-driven surface families are `HEXAGONAL_2D`, `FCC111`,
+`FCC100`, `BCC110`, `BCC100`, `ROCKSALT001`, and `PEROVSKITE001`.  Detection
+uses lattice shape, exposed-layer registry, periodicity, and local neighbour
+geometry; it does not use element names.
+
+- Hexagonal 2D sheets produce top, bottom, bridge, and hollow candidates.
+- FCC(111) surfaces distinguish FCC and HCP hollows from the layer below.
+- BCC surfaces add long bridges and fourfold candidates.
+- Square ionic and perovskite (001) surfaces expose top, bridge, and
+  fourfold candidates for their surface sublattices.
+
+See `examples/universal_sites.py` for minimal WSe2-like, FCC(111), and
+rocksalt (001) geometries.
+
 Visualization examples
 ----------------------
 
@@ -47,4 +78,3 @@ workflow.generate_adsorption_configurations()
 workflow.write_qe_inputs()
 summary = workflow.run()
 ```
-

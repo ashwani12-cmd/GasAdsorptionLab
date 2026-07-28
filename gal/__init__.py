@@ -9,6 +9,7 @@ __version__ = "0.1.0"
 
 from .config import Config
 from .gas import Gas
+from .sites import SiteType, SurfaceType
 from .workflow import AdsorptionWorkflow
 
 __all__ = [
@@ -16,6 +17,8 @@ __all__ = [
     "Gas",
     "Config",
     "AdsorptionWorkflow",
+    "SiteType",
+    "SurfaceType",
 ]
 
 
