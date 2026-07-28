@@ -1,0 +1,220 @@
+# ============================================================
+# GasAdsorptionLab Configuration File
+# ============================================================
+
+project:
+  name: "WSe2 Gas Adsorption"
+  author: "Ashwani Kushwaha"
+  version: "0.1.0"
+  output_dir: "output"
+
+# ============================================================
+# Materials Project
+# ============================================================
+
+materials_project:
+  api_key: "FIhTyCtOLCDDy1LQS4Lnr8Cx4smnNCiO"
+
+# ============================================================
+# Material Input
+# source = mp | cif | poscar
+# ============================================================
+
+material:
+  name: "WSe2"
+
+  source: "mp"
+
+  mp:
+    id: "mp-1821"
+
+  cif:
+    file: ""
+
+  poscar:
+    file: ""
+
+# ============================================================
+# Surface Settings
+# ============================================================
+
+surface:
+
+  supercell: [4, 4, 1]
+
+  vacuum: 20.0
+
+  center: true
+
+  periodic:
+    x: true
+    y: true
+    z: false
+
+# ============================================================
+# Adsorption
+# ============================================================
+
+adsorption:
+
+  sites:
+
+    - top
+    - bridge
+    - hollow
+
+  heights:
+
+    - 2.0
+    - 2.5
+    - 3.0
+
+  orientations:
+
+    - vertical
+    - horizontal
+    - flipped
+
+  remove_duplicate_structures: true
+
+# ============================================================
+# Gas Molecules
+# ============================================================
+
+gases:
+
+  - NH3
+  - NO2
+  - NO
+  - CO
+  - CO2
+  - SO2
+  - H2S
+  - CH4
+  - O2
+  - N2
+  - H2
+  - H2O
+
+# ============================================================
+# Quantum ESPRESSO
+# ============================================================
+
+qe:
+
+  calculation:
+
+    relax: true
+    scf: true
+    nscf: true
+    bands: true
+    dos: true
+    projwfc: true
+
+  pseudo_dir: "./pseudo"
+
+  outdir: "./tmp"
+
+  prefix: "gas"
+
+  ecutwfc: 80
+
+  ecutrho: 640
+
+  occupations: "smearing"
+
+  smearing: "mv"
+
+  degauss: 0.02
+
+  conv_thr: 1.0e-8
+
+  mixing_beta: 0.3
+
+  electron_maxstep: 200
+
+  force_conv_thr: 1.0e-4
+
+  press_conv_thr: 0.5
+
+# ============================================================
+# K-point Meshes
+# ============================================================
+
+kpoints:
+
+  relax: [4, 4, 1]
+
+  scf: [6, 6, 1]
+
+  nscf: [12, 12, 1]
+
+  bands: [12, 12, 1]
+
+  dos: [12, 12, 1]
+
+# ============================================================
+# Slurm
+# ============================================================
+
+slurm:
+
+  job_name: "GAL"
+
+  partition: "compute"
+
+  nodes: 1
+
+  ntasks: 64
+
+  cpus_per_task: 1
+
+  memory: "0"
+
+  time: "48:00:00"
+
+  module_load:
+
+    - quantum-espresso
+
+# ============================================================
+# Visualization
+# ============================================================
+
+visualization:
+
+  save_png: true
+
+  save_html: true
+
+  show_axes: true
+
+# ============================================================
+# Analysis
+# ============================================================
+
+analysis:
+
+  adsorption_energy: true
+
+  bader_charge: true
+
+  charge_density_difference: true
+
+  work_function: true
+
+  recovery_time: true
+
+  sensitivity: true
+
+  selectivity: true
+
+# ============================================================
+# Logging
+# ============================================================
+
+logging:
+
+  level: "INFO"
+
+  save_log: true

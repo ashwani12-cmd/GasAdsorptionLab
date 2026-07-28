@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Conda
+.env
+conda-meta/
+
+# Build
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Generated output
+output/
+adsorption_sites.xyz
+
+# OS
+.DS_Store
+Thumbs.db

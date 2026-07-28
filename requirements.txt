@@ -1,0 +1,12 @@
+ase>=3.23
+numpy>=1.26
+scipy>=1.12
+spglib>=2.4
+pymatgen>=2025.1
+mp-api>=0.45
+pandas>=2.2
+pyyaml>=6.0
+networkx>=3.2
+matplotlib>=3.8
+tqdm>=4.66
+rich>=13.7

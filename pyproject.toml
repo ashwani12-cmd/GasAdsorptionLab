@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gasadsorptionlab"
+version = "0.1.0"
+description = "Automated adsorption site generation for DFT calculations"
+authors = [
+    {name = "Ashwani Kushwaha"}
+]
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy",
+    "ase",
+    "mp-api",
+    "spglib",
+]
+
+[tool.setuptools]
+packages = ["gal"]
