@@ -4,6 +4,47 @@ from ase import Atoms
 from gal.sites import SiteFinder
 
 
+def test_primitive_periodic_surface_uses_image_neighbors_for_bridge_and_hollow_sites():
+    """A one-atom top layer still has periodic bonds and triangular hollows."""
+    atoms = Atoms(
+        symbols="SeWSe",
+        positions=[
+            [0.0, 0.0, 1.6],
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, -1.6],
+        ],
+        cell=[[3.28, 0.0, 0.0], [1.64, 2.8405, 0.0], [0.0, 0.0, 20.0]],
+        pbc=(True, True, False),
+    )
+
+    finder = SiteFinder(atoms)
+
+    assert len(finder.find_top()) == 1
+    assert len(finder.find_bridge()) == 3
+    assert len(finder.find_hollow()) == 2
+
+
+def test_site_names_remain_string_compatible_for_legacy_api():
+    atoms = Atoms(
+        symbols="W3",
+        positions=[
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.5, np.sqrt(3.0) / 2.0, 0.0],
+        ],
+        cell=[[2.0, 0.0, 0.0], [1.0, np.sqrt(3.0), 0.0], [0.0, 0.0, 10.0]],
+        pbc=(True, True, False),
+    )
+
+    finder = SiteFinder(atoms)
+    top_sites = finder.find_top_w()
+    hollow_sites = finder.find_hollow(cutoff=1.8)
+
+    assert len(top_sites) == 3
+    assert [site.name for site in top_sites] == ["Top_W", "Top_W", "Top_W"]
+    assert [site.name for site in hollow_sites] == ["Hollow"]
+
+
 def test_find_hollow_returns_single_site_for_triangle():
     atoms = Atoms(
         symbols="Si3",
@@ -49,7 +90,7 @@ def test_find_all_includes_hollow_sites():
     assert len(hollow_sites) == 1
     assert len(bridge_sites) >= 1
     assert len(top_se_sites) == 0
-    assert [site.name for site in sites[:2]] == ["Bridge", "Bridge"]
+    assert [site.name for site in sites[:2]] == ["Top", "Top"]
 
 
 def test_find_hollow_auto_cutoff_uses_first_neighbor_distance():
