@@ -29,8 +29,28 @@ class SiteType(str, Enum):
     """Supported adsorption-site categories."""
 
     TOP = "Top"
+    BOTTOM = "Bottom"
     BRIDGE = "Bridge"
+    BOTTOM_BRIDGE = "Bottom Bridge"
     HOLLOW = "Hollow"
+    BOTTOM_HOLLOW = "Bottom Hollow"
+    FCC = "FCC"
+    HCP = "HCP"
+    FOURFOLD = "Fourfold"
+    LONG_BRIDGE = "Long Bridge"
+
+
+class SurfaceType(str, Enum):
+    """Geometry-derived surface families understood by :class:`SiteFinder`."""
+
+    HEXAGONAL_2D = "hexagonal_2d"
+    FCC111 = "fcc111"
+    FCC100 = "fcc100"
+    BCC110 = "bcc110"
+    BCC100 = "bcc100"
+    ROCKSALT001 = "rocksalt001"
+    PEROVSKITE001 = "perovskite001"
+    UNKNOWN = "unknown"
 
 
 @dataclass
@@ -233,6 +253,89 @@ class SiteFinder:
         """Store the ASE atoms object used for site detection."""
         self.atoms = atoms
         self._graph_cache: dict[tuple[float | None, str | None], SurfaceGraph] = {}
+        self._surface_type: SurfaceType | None = None
+
+    def _layer_indices(self, tolerance: float = 0.5) -> list[list[int]]:
+        """Group atoms into horizontal layers without using element identity."""
+        ordered = sorted(range(len(self.atoms)), key=lambda index: self.atoms.positions[index, 2], reverse=True)
+        layers: list[list[int]] = []
+        reference_heights: list[float] = []
+        for index in ordered:
+            height = float(self.atoms.positions[index, 2])
+            if not layers or abs(height - reference_heights[-1]) > tolerance:
+                layers.append([index])
+                reference_heights.append(height)
+            else:
+                layers[-1].append(index)
+        return layers
+
+    def _in_plane_geometry(self) -> tuple[float, float, float]:
+        """Return in-plane vector lengths and their included angle in degrees."""
+        first, second = self.atoms.cell.array[:2]
+        first_length = float(np.linalg.norm(first))
+        second_length = float(np.linalg.norm(second))
+        if first_length < 1e-8 or second_length < 1e-8:
+            return 0.0, 0.0, 0.0
+        cosine = np.clip(np.dot(first, second) / (first_length * second_length), -1.0, 1.0)
+        return first_length, second_length, float(np.degrees(np.arccos(cosine)))
+
+    def _layer_offset(self, upper: list[int], lower: list[int]) -> float:
+        """Return the smallest periodic in-plane offset between two layers."""
+        if not upper or not lower:
+            return float("inf")
+        scaled = self.atoms.get_scaled_positions(wrap=True)
+        offsets: list[float] = []
+        for upper_index in upper:
+            for lower_index in lower:
+                delta = scaled[upper_index, :2] - scaled[lower_index, :2]
+                delta -= np.rint(delta)
+                offsets.append(float(np.linalg.norm(delta)))
+        return min(offsets)
+
+    def detect_surface_type(self) -> SurfaceType:
+        """Classify the exposed geometry using lattice and layer topology.
+
+        Classification intentionally depends only on geometry.  Chemical
+        symbols are not consulted, allowing the same code path for alloys and
+        materials whose elements are not known in advance.
+        """
+        if self._surface_type is not None:
+            return self._surface_type
+
+        if len(self.atoms) == 0 or not all(self.atoms.pbc[:2]):
+            self._surface_type = SurfaceType.UNKNOWN
+            return self._surface_type
+
+        first_length, second_length, angle = self._in_plane_geometry()
+        equal_lengths = np.isclose(first_length, second_length, rtol=0.08)
+        is_hexagonal = equal_lengths and (np.isclose(angle, 60.0, atol=4.0) or np.isclose(angle, 120.0, atol=4.0))
+        is_square = equal_lengths and np.isclose(angle, 90.0, atol=4.0)
+        layers = self._layer_indices()
+
+        if is_hexagonal:
+            # Close-packed (111) slabs have laterally shifted consecutive
+            # layers, whereas layered 2D compounds repeat the same registry
+            # above and below their central plane.
+            if len(layers) >= 3 and self._layer_offset(layers[0], layers[1]) > 0.08:
+                self._surface_type = SurfaceType.FCC111
+            else:
+                self._surface_type = SurfaceType.HEXAGONAL_2D
+        elif is_square:
+            top_count = len(layers[0]) if layers else 0
+            second_count = len(layers[1]) if len(layers) > 1 else 0
+            if top_count >= 3 and second_count >= 2:
+                self._surface_type = SurfaceType.PEROVSKITE001
+            elif top_count >= 2:
+                self._surface_type = SurfaceType.ROCKSALT001
+            elif len(layers) >= 3 and self._layer_offset(layers[0], layers[1]) > 0.08:
+                self._surface_type = SurfaceType.FCC100
+            else:
+                self._surface_type = SurfaceType.BCC100
+        elif np.isclose(angle, 90.0, atol=4.0) and max(first_length, second_length) / min(first_length, second_length) > 1.25:
+            self._surface_type = SurfaceType.BCC110
+        else:
+            self._surface_type = SurfaceType.UNKNOWN
+        return self._surface_type
 
     def surface_atoms(self, tolerance: float = 0.5) -> np.ndarray:
         """Return indices of top-surface atoms.
