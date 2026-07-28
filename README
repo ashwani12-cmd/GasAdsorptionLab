@@ -1,0 +1,50 @@
+GasAdsorptionLab
+
+Python toolkit for automated DFT gas adsorption studies on 2D materials using ASE and Quantum ESPRESSO.
+
+Features
+---------
+✔ Materials Project integration
+✔ Surface generation
+✔ Supercell creation
+✔ Vacuum generation
+✔ Adsorption site detection
+✔ XYZ/CIF export
+✔ QE input generation (coming)
+✔ Symmetry reduction (coming)
+✔ Automatic gas placement (coming)
+
+Visualization examples
+----------------------
+
+```python
+from ase.build import bulk
+import numpy as np
+
+from gal.gas import Gas
+from gal.sites import Site
+from gal.surface import Surface
+from gal.adsorption import place_adsorbate
+from gal.visualize import plot_top_sites, plot_bridge_sites, plot_hollow_sites
+
+atoms = bulk("Si", cubic=True)
+surface = Surface(atoms)
+site = Site(name="Top", position=np.array([0.0, 0.0, 0.0]), neighbors=(0,), metadata={"kind": "top"})
+gas = Gas("H2")
+
+adsorbate = place_adsorbate(surface, gas, site, adsorption_height=2.0, rotation=45.0)
+plot_top_sites(adsorbate, [site], show=False)
+
+orientations = generate_orientations(gas.atoms, axes=("x", "z"), angles=(0.0, 90.0), n_per_axis=2)
+
+qe_input = QEInput.from_config(config, atoms=adsorbate, prefix="adsorption")
+qe_input.write("output/adsorption.in")
+
+workflow = AdsorptionWorkflow(config=config, output_dir="output")
+workflow.load_structure(atoms)
+workflow.detect_sites()
+workflow.generate_adsorption_configurations()
+workflow.write_qe_inputs()
+summary = workflow.run()
+```
+

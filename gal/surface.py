@@ -4,9 +4,6 @@ from ase import Atoms
 from ase.build import make_supercell
 from ase.io import read, write
 
-from mp_api.client import MPRester
-from pymatgen.io.ase import AseAtomsAdaptor
-
 
 class Surface:
 
@@ -19,8 +16,15 @@ class Surface:
     @classmethod
     def from_mp(cls, mpid, api_key):
 
-        with MPRester(api_key) as mpr:
+        try:
+            from mp_api.client import MPRester
+            from pymatgen.io.ase import AseAtomsAdaptor
+        except ImportError as exc:  # pragma: no cover - exercised in minimal envs
+            raise ImportError(
+                "Materials Project support requires optional dependencies: mp_api and pymatgen"
+            ) from exc
 
+        with MPRester(api_key) as mpr:
             structure = mpr.get_structure_by_material_id(mpid)
 
         atoms = AseAtomsAdaptor.get_atoms(structure)
