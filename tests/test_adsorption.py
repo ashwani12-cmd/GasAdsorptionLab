@@ -26,3 +26,5 @@ def test_place_adsorbate_returns_new_atoms_object():
     adsorbate_positions = adsorbate.get_positions()
     assert adsorbate_positions[-1][2] >= site.position[2] + 1.0
     assert adsorbate.get_chemical_symbols()[-1] == "H"
+    assert adsorbate.info["adsorption_height"] == 2.0
+    assert adsorbate.info["orientation"] == "custom"

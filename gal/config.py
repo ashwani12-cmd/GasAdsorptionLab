@@ -3,6 +3,7 @@ import yaml
 
 
 class Config:
+    """Small YAML or dictionary-backed configuration container."""
 
     def __init__(self, filename="config.yaml"):
 

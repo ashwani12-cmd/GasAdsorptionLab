@@ -5,7 +5,9 @@ from __future__ import annotations
 import numpy as np
 from ase import Atoms
 
+from .adsorbate import Adsorbate
 from .gas import Gas
+from .placement import place_adsorbate as _place_adsorbate
 from .sites import Site
 from .surface import Surface
 
@@ -99,7 +101,7 @@ def place_adsorbate(
     adsorption_height: float = 2.0,
     rotation: float | None = None,
 ) -> Atoms:
-    """Place a gas molecule above a site and return a new ASE atoms object.
+    """Backward-compatible wrapper for :func:`gal.placement.place_adsorbate`.
 
     Parameters
     ----------
@@ -119,39 +121,18 @@ def place_adsorbate(
     ase.Atoms
         A new ASE atoms object containing the surface and the adsorbate.
     """
-    substrate = surface.atoms.copy()
-    molecule = gas.atoms.copy()
-
-    if molecule is None:
+    if gas.atoms is None:
         raise ValueError("Gas atoms object is empty")
 
+    adsorbate = Adsorbate.from_atoms(gas.formula, gas.atoms)
+    orientation: Atoms | str = "auto"
     if rotation is not None:
-        molecule = molecule.copy()
-        theta = np.deg2rad(rotation)
-        rotation_matrix = np.array(
-            [
-                [np.cos(theta), -np.sin(theta), 0.0],
-                [np.sin(theta), np.cos(theta), 0.0],
-                [0.0, 0.0, 1.0],
-            ],
-            dtype=float,
-        )
-        positions = molecule.get_positions()
-        centered = positions - np.mean(positions, axis=0)
-        rotated = centered @ rotation_matrix.T
-        molecule.set_positions(rotated + np.mean(positions, axis=0))
+        orientation = rotate_molecule(adsorbate.atoms, axis="z", angle=rotation)
 
-    # Center the molecule on its geometric center and place it above the site.
-    positions = molecule.get_positions()
-    center = np.mean(positions, axis=0)
-    molecule.translate(-center)
-
-    molecule_positions = molecule.get_positions()
-    max_z = np.max(molecule_positions[:, 2])
-    molecule.translate(np.array([0.0, 0.0, adsorption_height - max_z]))
-
-    position = np.array(site.position, dtype=float).copy()
-    molecule.translate(position)
-
-    combined = substrate + molecule
-    return combined
+    return _place_adsorbate(
+        surface=surface,
+        site=site,
+        adsorbate=adsorbate,
+        height=adsorption_height,
+        orientation=orientation,
+    )

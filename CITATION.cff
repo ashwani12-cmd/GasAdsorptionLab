@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use GasAdsorptionLab, please cite it using this metadata."
+title: "GasAdsorptionLab"
+version: "0.6.0"
+date-released: 2026-07-28
+authors:
+  - family-names: "Kushwaha"
+    given-names: "Ashwani"
+repository-code: "https://github.com/ashwani12-cmd/GasAdsorptionLab"
+license: "MIT"

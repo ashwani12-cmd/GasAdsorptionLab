@@ -1,5 +1,8 @@
 GasAdsorptionLab
 
+Automated, reproducible adsorption-site and Quantum ESPRESSO workflow tools
+for atomistic surface studies.
+
 Python toolkit for automated DFT gas adsorption studies on 2D materials using ASE and Quantum ESPRESSO.
 
 Features
@@ -21,7 +24,7 @@ Universal adsorption-site engine
 methods remain the same for every surface family:
 
 ```python
-from gal.sites import SiteFinder
+from gal import SiteFinder
 
 finder = SiteFinder(atoms)
 print(finder.detect_surface_type())
@@ -45,6 +48,77 @@ geometry; it does not use element names.
 See `examples/universal_sites.py` for minimal WSe2-like, FCC(111), and
 rocksalt (001) geometries.
 
+Adsorbate placement
+-------------------
+
+Adsorbates can be placed at every detected site with geometry-based contact
+heights and molecule-specific default orientations:
+
+```python
+from gal import Adsorbate, SiteFinder, generate_adsorption_structures
+
+finder = SiteFinder(surface)
+structures = generate_adsorption_structures(
+    surface,
+    Adsorbate("CO"),
+    sites=finder.find_all(),
+    height="auto",
+    orientations="auto",
+)
+```
+
+`Adsorbate` includes H, O, N, C, CO, CO2, NH3, NO, NO2, H2, H2O, CH4, SO2,
+and H2S starting geometries.  See `examples/adsorbate_builder.py`.
+
+Quantum ESPRESSO jobs
+---------------------
+
+Use `QEInputBuilder` and `QEJobWriter` to turn generated structures into
+ready-to-run `pw.x` directories containing `pw.in`, `submit.sh`, and
+`metadata.json`.  The workflow also provides `build_qe_jobs()` after
+configurations have been generated.  See `examples/qe_builder.py`.
+
+Campaigns
+---------
+
+`AdsorptionCampaign` generates all selected sites, orientations, QE inputs,
+and scheduler scripts in one restartable directory tree.  It writes
+`campaign.json` and `campaign.csv` summaries and skips existing jobs unless
+`overwrite=True` is supplied.
+
+```python
+from gal import AdsorptionCampaign
+
+campaign = AdsorptionCampaign("MoS2.cif", ["CO", "NH3", "NO2"])
+jobs = campaign.generate()
+```
+
+The same workflow is available from YAML with `gal campaign config.yaml`.
+See `examples/campaign.py` for a self-contained runnable example.
+
+Documentation and release metadata
+----------------------------------
+
+The [documentation](docs/README.md) includes installation, quick-start,
+adsorption, campaign, QE, API, and example-gallery guides. See
+[CHANGELOG.md](CHANGELOG.md) for release history and
+[CITATION.cff](CITATION.cff) for citation metadata. GasAdsorptionLab is
+released under the [MIT License](LICENSE).
+
+Optional features and offline mode
+----------------------------------
+
+The core package, site detection, placement, QE input generation, campaigns,
+and examples run without network access. Materials Project downloads are
+optional: provide `MP_API_KEY` in your environment (or an API key in a local,
+uncommitted configuration file) and call `Surface.from_mp`. The network
+download test is deliberately opt-in with `GAL_RUN_NETWORK_TESTS=1` so normal
+test runs and continuous integration remain offline. Install optional extras
+with `pip install 'gasadsorptionlab[symmetry]'` or
+`pip install 'gasadsorptionlab[materials-project]'`. `spglib` is used for
+symmetry reduction; if it is unavailable, the reducer falls back to lattice
+translation handling.
+
 Visualization examples
 ----------------------
 
@@ -52,9 +126,7 @@ Visualization examples
 from ase.build import bulk
 import numpy as np
 
-from gal.gas import Gas
-from gal.sites import Site
-from gal.surface import Surface
+from gal import Gas, Site, Surface
 from gal.adsorption import place_adsorbate
 from gal.visualize import plot_top_sites, plot_bridge_sites, plot_hollow_sites
 

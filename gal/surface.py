@@ -6,10 +6,10 @@ from ase.io import read, write
 
 
 class Surface:
+    """ASE-backed surface structure with file and Materials Project loaders."""
 
-    def __init__(self, atoms: Atoms):
-
-        self.atoms = atoms
+    def __init__(self, atoms: Atoms | str):
+        self.atoms = read(atoms) if isinstance(atoms, str) else atoms
 
     # --------------------------------------------------
 

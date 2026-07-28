@@ -4,6 +4,7 @@ from ase.io import read
 
 
 class Gas:
+    """Legacy XYZ-backed gas molecule loader."""
 
     def __init__(self, formula):
 

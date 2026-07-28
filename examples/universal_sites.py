@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 from ase import Atoms
 
-from gal.sites import SiteFinder
+from gal import SiteFinder
 
 
 def wse2_like() -> Atoms:

@@ -389,9 +389,9 @@ class _BCCEngine(_SquareSurfaceEngine):
 class SiteFinder:
     """Detect adsorption sites on a surface."""
 
-    def __init__(self, atoms: Atoms) -> None:
+    def __init__(self, atoms: Atoms | Any) -> None:
         """Store the ASE atoms object used for site detection."""
-        self.atoms = atoms
+        self.atoms = atoms.atoms if hasattr(atoms, "atoms") else atoms
         self._graph_cache: dict[tuple[float | None, str | None], SurfaceGraph] = {}
         self._surface_type: SurfaceType | None = None
 

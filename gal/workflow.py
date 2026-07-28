@@ -10,7 +10,7 @@ from ase import Atoms
 from .adsorption import place_adsorbate
 from .config import Config
 from .gas import Gas
-from .qe import QEInput
+from .qe import QEInput, QEInputBuilder, QEJobWriter
 from .sites import Site, SiteFinder
 from .surface import Surface
 
@@ -110,6 +110,40 @@ class AdsorptionWorkflow:
             self.log(f"Wrote QE input: {output_path}")
 
         return written_files
+
+    def build_qe_jobs(
+        self,
+        builder: QEInputBuilder | None = None,
+        jobs_dir: str | Path | None = None,
+        slurm: dict[str, Any] | None = None,
+    ) -> list[Path]:
+        """Create ready-to-submit QE job directories for generated structures."""
+        if not self.configurations:
+            raise ValueError("No configurations generated")
+        config_data = self.config.data if isinstance(self.config, Config) else self.config
+        qe_data = config_data.get("qe", {})
+        builder = builder or QEInputBuilder(
+            pseudo_dir=qe_data.get("pseudo_dir", "./pseudo"),
+            ecutwfc=qe_data.get("ecutwfc", 60),
+            ecutrho=qe_data.get("ecutrho", 480),
+            kpts=tuple(config_data.get("kpoints", {}).get("scf", [6, 6, 1])),
+        )
+        writer = QEJobWriter(builder, jobs_dir or self.output_dir / "jobs", slurm=slurm)
+        surface_formula = self.surface.atoms.get_chemical_formula() if self.surface else None
+        directories: list[Path] = []
+        for index, (site, structure) in enumerate(self.configurations):
+            adsorbate = structure.info.get("adsorbate", "adsorption")
+            name = f"{str(site.name).replace(' ', '_')}_{adsorbate}"
+            metadata = {
+                "surface": surface_formula,
+                "adsorbate": adsorbate,
+                "site": str(site.name),
+                "orientation": structure.info.get("orientation"),
+                "height": structure.info.get("adsorption_height"),
+            }
+            directories.append(writer.write_job(structure, name if index == 0 else f"{name}_{index}", metadata))
+        self.log(f"Generated {len(directories)} QE job directories")
+        return directories
 
     def _build_summary(self) -> dict[str, Any]:
         """Assemble a compact workflow summary."""

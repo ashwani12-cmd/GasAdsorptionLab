@@ -16,6 +16,17 @@ try:
 except ImportError:  # pragma: no cover - exercised when optional dependency is absent
     spglib = None
 
+if spglib is not None:
+    # spglib 2.x asks callers to opt into exception-based error handling.
+    try:  # pragma: no branch - module layout differs across spglib releases
+        import spglib.error as _spglib_error
+        import spglib.spg as _spglib_api
+
+        _spglib_error.OLD_ERROR_HANDLING = False
+        _spglib_api.OLD_ERROR_HANDLING = False
+    except ImportError:  # pragma: no cover - old spglib releases
+        pass
+
 from .sites import Site
 
 
@@ -37,21 +48,40 @@ class SymmetryReducer:
         scaled_positions = self.atoms.get_scaled_positions()
         return cell, scaled_positions
 
+    def _spglib_cell(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Return the official spglib cell tuple for current API versions."""
+        cell, scaled_positions = self._cell_and_positions()
+        return cell, scaled_positions, self.atoms.numbers
+
     def _space_group(self) -> int:
         """Return the space-group number for the current structure."""
         if spglib is None:
             return 1
 
-        cell, scaled_positions = self._cell_and_positions()
-        return spglib.get_space_group(cell, scaled_positions)[0]
+        cell = self._spglib_cell()
+        # spglib 2.x returns a symbol string from get_spacegroup; this helper
+        # is retained for compatibility and is not used in site reduction.
+        try:
+            result = spglib.get_spacegroup(cell)
+        except AttributeError:  # pragma: no cover - old spglib releases
+            result = spglib.get_space_group(*cell)
+        return int(result.split("(")[-1].rstrip(")")) if result else 1
 
     def _symmetry_operations(self) -> list[np.ndarray]:
         """Return symmetry operations for the current structure."""
         if spglib is None:
             return [np.eye(3, dtype=float)]
 
-        cell, scaled_positions = self._cell_and_positions()
-        return spglib.get_symmetry(cell, scaled_positions, symprec=1e-5)["rotations"]
+        cell = self._spglib_cell()
+        try:
+            dataset = spglib.get_symmetry_dataset(cell, symprec=1e-5)
+            rotations = dataset.rotations if dataset is not None else None
+        except AttributeError:  # pragma: no cover - compatibility with pre-2.x API
+            symmetry = spglib.get_symmetry(*cell, symprec=1e-5)
+            rotations = symmetry["rotations"] if symmetry is not None else None
+        if rotations is None:
+            return [np.eye(3, dtype=float)]
+        return rotations
 
     def _rotate_position(self, position: np.ndarray, rotation: np.ndarray) -> np.ndarray:
         """Apply a symmetry rotation to a Cartesian or fractional position."""

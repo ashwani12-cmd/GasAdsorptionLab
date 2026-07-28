@@ -1,22 +1,54 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gasadsorptionlab"
-version = "0.1.0"
+version = "0.6.0"
 description = "Automated adsorption site generation for DFT calculations"
+readme = "README"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Ashwani Kushwaha"}
 ]
+keywords = ["adsorption", "density-functional-theory", "quantum-espresso", "ase", "materials-science"]
 requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
 
 dependencies = [
     "numpy",
     "ase",
-    "mp-api",
-    "spglib",
+    "PyYAML",
 ]
 
-[tool.setuptools]
-packages = ["gal"]
+[project.optional-dependencies]
+symmetry = ["spglib"]
+materials-project = ["mp-api", "pymatgen"]
+full = ["spglib", "mp-api", "pymatgen"]
+
+[project.scripts]
+gal = "gal.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ashwani12-cmd/GasAdsorptionLab"
+Documentation = "https://github.com/ashwani12-cmd/GasAdsorptionLab/tree/main/docs"
+Repository = "https://github.com/ashwani12-cmd/GasAdsorptionLab"
+Issues = "https://github.com/ashwani12-cmd/GasAdsorptionLab/issues"
+
+[tool.setuptools.packages.find]
+include = ["gal", "gal.*"]
+
+[tool.setuptools.package-data]
+gal = ["data/gases/*.xyz"]
