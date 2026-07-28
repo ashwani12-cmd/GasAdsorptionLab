@@ -7,10 +7,12 @@ its own color and a label stored as an array on the returned atoms object.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Iterable
 
 import numpy as np
 from ase import Atoms
+from ase.io import write
 from ase.visualize import view
 
 from .sites import Site
@@ -27,11 +29,13 @@ def _append_site_marker(
     site: Site,
     site_type: str,
     index: int,
+    marker_element: str = "X",
+    marker_height: float = 2.5,
 ) -> Atoms:
     """Return a copy of the atoms object with a site marker appended."""
     marker = Atoms(
-        symbols="X",
-        positions=[site.position],
+        symbols=marker_element,
+        positions=[site.visualization_position(marker_height)],
         cell=atoms.cell.copy(),
         pbc=atoms.pbc,
     )
@@ -69,6 +73,42 @@ def _plot_sites(atoms: Atoms, sites: Iterable[Site], site_type: str, show: bool 
         view(view_atoms)
 
     return view_atoms
+
+
+def export_site_markers(
+    atoms: Atoms,
+    sites: Iterable[Site],
+    output_dir: str | Path = "ovito_sites",
+    marker_element: str = "Ne",
+    marker_height: float = 2.5,
+) -> list[Path]:
+    """Export one elevated marker structure per site plus an XYZ trajectory.
+
+    Each ``NN_SiteType.xyz`` contains the original slab and exactly one
+    marker. ``all_sites.xyz`` contains the same structures as frames, making
+    it convenient to inspect candidates with OVITO's timeline.
+    """
+    directory = Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    frames: list[Atoms] = []
+    paths: list[Path] = []
+    for index, site in enumerate(sites):
+        frame = atoms.copy()
+        marker = Atoms(
+            symbols=marker_element,
+            positions=[site.visualization_position(marker_height)],
+            cell=atoms.cell.copy(),
+            pbc=atoms.pbc,
+        )
+        frame.extend(marker)
+        frame.info.update({"site_name": str(site.name), "site_index": index, "marker_height": marker_height})
+        filename = directory / f"{index:02d}_{str(site.name).replace(' ', '_')}.xyz"
+        write(filename, frame, format="extxyz")
+        paths.append(filename)
+        frames.append(frame)
+    if frames:
+        write(directory / "all_sites.xyz", frames, format="extxyz")
+    return paths
 
 
 def plot_top_sites(atoms: Atoms, sites: Iterable[Site], show: bool = True) -> Atoms:

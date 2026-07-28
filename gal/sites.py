@@ -102,6 +102,19 @@ class Site:
         if self.surface_layer is None and self.layer is not None:
             self.surface_layer = self.layer
 
+    def visualization_position(self, height: float | None = None) -> np.ndarray:
+        """Return an elevated copy of this site position for visualization.
+
+        ``Site.position`` remains the adsorption point on the surface.  This
+        helper is deliberately separate from placement and is intended for
+        marker atoms in OVITO, VESTA, and ASE viewers.
+        """
+        offset = self.adsorption_height if height is None and self.adsorption_height is not None else height
+        offset = 2.5 if offset is None else float(offset)
+        position = self.position.copy()
+        position[2] += offset
+        return position
+
 
 class SurfaceGraph:
     """Internal graph of periodic surface atoms and their neighbor relations."""
@@ -828,8 +841,7 @@ class SiteFinder:
         xyz = self.atoms.copy()
         for site in self.find_all():
             symbol = mapping.get(site.name, "He")
-            position = site.position.copy()
-            position[2] += height
+            position = site.visualization_position(height)
             xyz += Atoms(symbols=symbol, positions=[position])
 
         write(filename, xyz)

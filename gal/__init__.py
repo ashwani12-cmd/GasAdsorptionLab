@@ -24,6 +24,7 @@ __all__ = [
     "place_adsorbate",
     "generate_adsorption_structures",
     "AdsorptionCampaign",
+    "export_site_markers",
 ]
 
 
@@ -57,5 +58,9 @@ def __getattr__(name: str):
     if name == "AdsorptionCampaign":
         from .campaign import AdsorptionCampaign
         return AdsorptionCampaign
+
+    if name == "export_site_markers":
+        from .visualize import export_site_markers
+        return export_site_markers
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

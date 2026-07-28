@@ -9,3 +9,5 @@ All examples are self-contained and are executed in continuous integration.
 - `examples/adsorbate_builder.py` — CO and NH3 placement structures.
 - `examples/qe_builder.py` — QE job-directory generation.
 - `examples/campaign.py` — complete multi-adsorbate campaign.
+- `examples/site_marker_visualization.py` — elevated per-site OVITO markers
+  and an `all_sites.xyz` trajectory.

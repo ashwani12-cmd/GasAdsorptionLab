@@ -70,6 +70,22 @@ structures = generate_adsorption_structures(
 `Adsorbate` includes H, O, N, C, CO, CO2, NH3, NO, NO2, H2, H2O, CH4, SO2,
 and H2S starting geometries.  See `examples/adsorbate_builder.py`.
 
+Site-marker visualization
+-------------------------
+
+`Site.position` is the surface adsorption point. For viewer markers, use an
+elevated visualization position or export one marker structure per site:
+
+```python
+from gal import export_site_markers
+
+paths = export_site_markers(surface.atoms, sites, marker_element="Ne", marker_height=2.5)
+```
+
+The output directory contains `00_Top.xyz`, one file for each additional
+site, and `all_sites.xyz`, whose frames can be stepped through in OVITO.
+See `examples/site_marker_visualization.py`.
+
 Quantum ESPRESSO jobs
 ---------------------
 
