@@ -23,6 +23,10 @@ class QEInputBuilder:
         pseudopotentials: dict[str, str] | None = None,
         occupations: str = "smearing",
         conv_thr: float = 1.0e-8,
+        smearing: str = "mv",
+        degauss: float = 0.01,
+        vdw_corr: str | None = "grimme-d3",
+        nspin: int = 1,
     ) -> None:
         self.pseudo_dir = pseudo_dir
         self.ecutwfc = ecutwfc
@@ -32,19 +36,29 @@ class QEInputBuilder:
         self.pseudopotentials = pseudopotentials or {}
         self.occupations = occupations
         self.conv_thr = conv_thr
+        self.smearing = smearing
+        self.degauss = degauss
+        self.vdw_corr = vdw_corr
+        self.nspin = nspin
 
     def configuration(self, atoms: Atoms, prefix: str, calculation: str = "scf") -> dict[str, Any]:
         """Return the canonical configuration dictionary for an input deck."""
+        qe: dict[str, Any] = {
+            "prefix": prefix,
+            "calculation": calculation,
+            "pseudo_dir": self.pseudo_dir,
+            "ecutwfc": self.ecutwfc,
+            "ecutrho": self.ecutrho,
+            "occupations": self.occupations,
+            "conv_thr": self.conv_thr,
+            "smearing": self.smearing,
+            "degauss": self.degauss,
+            "nspin": self.nspin,
+        }
+        if self.vdw_corr is not None:
+            qe["vdw_corr"] = self.vdw_corr
         return {
-            "qe": {
-                "prefix": prefix,
-                "calculation": calculation,
-                "pseudo_dir": self.pseudo_dir,
-                "ecutwfc": self.ecutwfc,
-                "ecutrho": self.ecutrho,
-                "occupations": self.occupations,
-                "conv_thr": self.conv_thr,
-            },
+            "qe": qe,
             "kpoints": {"scf": list(self.kpts)},
             "pseudopotentials": pseudopotential_map(atoms.get_chemical_symbols(), self.pseudopotentials),
             "xc": self.xc,

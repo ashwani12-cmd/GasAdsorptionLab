@@ -94,6 +94,12 @@ ready-to-run `pw.x` directories containing `pw.in`, `submit.sh`, and
 `metadata.json`.  The workflow also provides `build_qe_jobs()` after
 configurations have been generated.  See `examples/qe_builder.py`.
 
+`QEInputBuilder` defaults to Grimme-D3 dispersion-corrected PBE
+(`vdw_corr='grimme-d3'`) with Marzari-Vanderbilt smearing
+(`smearing='mv'`, `degauss=0.01`), since weakly bound physisorption cases
+like CO on WSe2 are wrong without a van der Waals correction. Pass
+`vdw_corr=None` to disable it, or `nspin=2` for spin-polarized systems.
+
 Campaigns
 ---------
 

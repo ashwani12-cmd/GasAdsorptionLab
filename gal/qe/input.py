@@ -61,6 +61,10 @@ class QEInput:
             lines.append(f"  smearing = '{qe['smearing']}'")
         if qe.get("degauss") is not None:
             lines.append(f"  degauss = {qe['degauss']}")
+        if qe.get("vdw_corr"):
+            lines.append(f"  vdw_corr = '{qe['vdw_corr']}'")
+        if qe.get("nspin") is not None:
+            lines.append(f"  nspin = {qe['nspin']}")
         lines.extend(["/", ""])
         return "\n".join(lines)
 

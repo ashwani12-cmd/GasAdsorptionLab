@@ -22,6 +22,21 @@ def test_qe_input_builder_populates_pw_x_sections_and_overrides():
     assert "K_POINTS (automatic)" in text
 
 
+def test_qe_input_builder_defaults_include_vdw_smearing_and_spin():
+    text = QEInputBuilder().build(_atoms(), prefix="test").render()
+
+    assert "vdw_corr = 'grimme-d3'" in text
+    assert "smearing = 'mv'" in text
+    assert "degauss = 0.01" in text
+    assert "nspin = 1" in text
+
+
+def test_qe_input_builder_omits_vdw_corr_when_disabled():
+    text = QEInputBuilder(vdw_corr=None).build(_atoms(), prefix="test").render()
+
+    assert "vdw_corr" not in text
+
+
 def test_pseudopotential_mapping_supports_defaults_and_overrides():
     assert pseudopotential_for("Mo") == "Mo.pbe-spn-kjpaw_psl.1.0.0.UPF"
     assert pseudopotential_for("S", {"S": "S.override.UPF"}) == "S.override.UPF"

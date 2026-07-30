@@ -4,6 +4,14 @@ All notable changes to GasAdsorptionLab are documented here.
 
 ## Unreleased
 
+### Added
+
+- `QEInputBuilder` now defaults to Grimme-D3 van der Waals dispersion
+  (`vdw_corr='grimme-d3'`), Marzari-Vanderbilt smearing (`smearing='mv'`,
+  `degauss=0.01`), and `nspin=1`, so generated `pw.in` decks are physically
+  correct by default for cases like physisorbed CO on WSe2. Pass
+  `vdw_corr=None` to disable dispersion correction.
+
 ### Fixed
 
 - `export_optimized_structures()` no longer raises `IndexError` for numeric
