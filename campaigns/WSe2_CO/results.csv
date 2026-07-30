@@ -1,7 +1,0 @@
-Directory,Site,UniqueSiteID,Adsorbate,Supercell,Energy,FinalSCFEnergy,Converged,SCFIterations,CPUTime,WallTime,Pressure,FermiEnergy,Magnetization,Orientation,Height
-campaigns/WSe2_CO/00_Top,Top,00_Top,CO,,,,False,,,,,,,c-down,2.31
-campaigns/WSe2_CO/01_Bridge,Bridge,01_Bridge,CO,,,,False,,,,,,,c-down,2.31
-campaigns/WSe2_CO/02_Bridge,Bridge,02_Bridge,CO,,,,False,,,,,,,c-down,2.31
-campaigns/WSe2_CO/03_Bridge,Bridge,03_Bridge,CO,,,,False,,,,,,,c-down,2.31
-campaigns/WSe2_CO/04_FCC,FCC,04_FCC,CO,,,,False,,,,,,,c-down,2.31
-campaigns/WSe2_CO/05_HCP,HCP,05_HCP,CO,,,,False,,,,,,,c-down,2.31
