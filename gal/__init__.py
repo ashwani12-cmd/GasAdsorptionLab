@@ -24,6 +24,8 @@ __all__ = [
     "place_adsorbate",
     "generate_adsorption_structures",
     "AdsorptionCampaign",
+    "generate_campaign",
+    "generate_wse2_co_campaign",
     "export_site_markers",
 ]
 
@@ -58,6 +60,14 @@ def __getattr__(name: str):
     if name == "AdsorptionCampaign":
         from .campaign import AdsorptionCampaign
         return AdsorptionCampaign
+
+    if name == "generate_campaign":
+        from .campaign import generate_campaign
+        return generate_campaign
+
+    if name == "generate_wse2_co_campaign":
+        from .campaign import generate_wse2_co_campaign
+        return generate_wse2_co_campaign
 
     if name == "export_site_markers":
         from .visualize import export_site_markers

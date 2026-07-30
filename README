@@ -109,8 +109,24 @@ campaign = AdsorptionCampaign("MoS2.cif", ["CO", "NH3", "NO2"])
 jobs = campaign.generate()
 ```
 
+For one-shot campaigns without constructing an object, use the generic
+helper with an ASE `Atoms`, `Surface`, or structure filename:
+
+```python
+from gal import generate_campaign
+
+jobs = generate_campaign("examples/WSe2.cif", ["CO", "NH3"], supercell=(3, 3, 1))
+```
+
 The same workflow is available from YAML with `gal campaign config.yaml`.
 See `examples/campaign.py` for a self-contained runnable example.
+
+For a WSe2 + CO relax campaign, `generate_wse2_co_campaign()` expands
+`examples/WSe2.cif` to a `(3, 3, 1)` supercell by default before detecting
+sites. Pass a different positive integer tuple through `supercell`, for
+example `supercell=(4, 4, 1)`. Before writing QE jobs it prints total,
+periodic-coordinate unique, and removed-duplicate site counts. The generated
+`summary.csv` records a stable `UniqueSiteID` for every retained site.
 
 Documentation and release metadata
 ----------------------------------

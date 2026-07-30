@@ -116,6 +116,15 @@ class Site:
         return position
 
 
+@dataclass(frozen=True)
+class SiteDeduplicationReport:
+    """Count sites retained by periodic-aware duplicate removal."""
+
+    total_sites: int
+    unique_sites: int
+    removed_duplicates: int
+
+
 class SurfaceGraph:
     """Internal graph of periodic surface atoms and their neighbor relations."""
 
@@ -802,6 +811,47 @@ class SiteFinder:
             if not duplicate:
                 unique.append(site)
         return unique
+
+    def _periodic_site_distance(self, first: Site, second: Site) -> float:
+        """Return a minimum-image Cartesian distance using fractional coordinates."""
+        scaled = self.atoms.cell.scaled_positions([first.position, second.position])
+        delta = scaled[0] - scaled[1]
+        for axis, periodic in enumerate(self.atoms.pbc):
+            if periodic:
+                delta[axis] -= np.rint(delta[axis])
+        return float(np.linalg.norm(delta @ self.atoms.cell.array))
+
+    def find_unique_sites(self, sites: list[Site] | None = None, tolerance: float = 1e-3) -> list[Site]:
+        """Return periodic-position-unique sites while preserving site classes.
+
+        Two candidates are duplicates only when their site names match and
+        their minimum-image Cartesian separation is below ``tolerance`` Å.
+        Thus chemically distinct classes such as Top, Bridge, FCC, and HCP
+        are always retained, even if they share a projected position.
+        """
+        if tolerance <= 0.0:
+            raise ValueError("tolerance must be positive")
+        candidates = self.find_all() if sites is None else sites
+        unique: list[Site] = []
+        for site in candidates:
+            if any(str(site.name) == str(other.name) and self._periodic_site_distance(site, other) < tolerance for other in unique):
+                continue
+            unique.append(site)
+        return unique
+
+    def site_deduplication_report(
+        self,
+        sites: list[Site] | None = None,
+        tolerance: float = 1e-3,
+    ) -> SiteDeduplicationReport:
+        """Return total, unique, and removed counts for periodic site cleanup."""
+        candidates = self.find_all() if sites is None else sites
+        unique = self.find_unique_sites(candidates, tolerance=tolerance)
+        return SiteDeduplicationReport(
+            total_sites=len(candidates),
+            unique_sites=len(unique),
+            removed_duplicates=len(candidates) - len(unique),
+        )
 
     def find_all(self) -> list[Site]:
         """Return all detected site candidates sorted by site type."""

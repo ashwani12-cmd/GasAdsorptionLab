@@ -1,0 +1,7 @@
+Directory,Site,Adsorbate,Structure,Input
+campaigns/WSe2_CO/00_Top,Top,CO,structure.xyz,pw.in
+campaigns/WSe2_CO/01_Bridge,Bridge,CO,structure.xyz,pw.in
+campaigns/WSe2_CO/02_Bridge,Bridge,CO,structure.xyz,pw.in
+campaigns/WSe2_CO/03_Bridge,Bridge,CO,structure.xyz,pw.in
+campaigns/WSe2_CO/04_FCC,FCC,CO,structure.xyz,pw.in
+campaigns/WSe2_CO/05_HCP,HCP,CO,structure.xyz,pw.in

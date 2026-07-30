@@ -1,0 +1,44 @@
+&CONTROL
+  calculation = 'relax'
+  prefix = '00_Top'
+  pseudo_dir = './pseudo'
+/
+
+&SYSTEM
+  ibrav = 0
+  nat = 8
+  ntyp = 4
+  ecutwfc = 60
+  ecutrho = 480
+  occupations = 'smearing'
+/
+
+&ELECTRONS
+  conv_thr = 1e-08
+  electron_maxstep = 200
+  mixing_beta = 0.3
+/
+
+ATOMIC_SPECIES
+  C  12.0110  C.pbe-n-kjpaw_psl.1.0.0.UPF
+  O  15.9990  O.pbe-n-kjpaw_psl.1.0.0.UPF
+  Se  78.9710  Se.pbe-n-kjpaw_psl.1.0.0.UPF
+  W  183.8400  W.pbe-n-kjpaw_psl.1.0.0.UPF
+
+ATOMIC_POSITIONS (angstrom)
+  W  -0.00000002  1.91676417  3.43429683
+  W  1.65996648  0.95838207  10.30289047
+  Se  -0.00000002  1.91676417  11.96510099
+  Se  1.65996648  0.95838207  1.77208631
+  Se  1.65996644  0.95838207  5.09650734
+  Se  0.00000002  1.91676417  8.64067996
+  C  -0.00000002  1.91676417  14.27510099
+  O  -0.00000002  1.91676417  15.40310099
+
+CELL_PARAMETERS (angstrom)
+  3.31993292  0.00000000  0.00000000
+  -1.65996646  2.87514625  0.00000000
+  0.00000000  0.00000000  13.73718730
+
+K_POINTS (automatic)
+  6 6 1  0 0 0

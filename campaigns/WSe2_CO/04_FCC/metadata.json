@@ -1,0 +1,15 @@
+{
+  "adsorbate": "CO",
+  "adsorption_position": [
+    3.3199329034003355,
+    9.583820848035884e-09,
+    11.965100990677968
+  ],
+  "creation_time": "2026-07-28T14:49:38.465824+00:00",
+  "formula": "COSe4W2",
+  "generated_at": "2026-07-28T14:49:38.466152+00:00",
+  "height": 2.31,
+  "orientation": "c-down",
+  "site": "FCC",
+  "surface": null
+}
