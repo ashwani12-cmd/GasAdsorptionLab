@@ -137,6 +137,24 @@ adsorption, campaign, QE, API, and example-gallery guides. See
 [CITATION.cff](CITATION.cff) for citation metadata. GasAdsorptionLab is
 released under the [MIT License](LICENSE).
 
+Campaign results analysis
+-------------------------
+
+Parse completed Quantum ESPRESSO campaigns and export ranked adsorption
+energies with `CampaignResults`:
+
+```python
+from gal import CampaignResults
+
+results = CampaignResults.from_directory("campaigns/WSe2_CO")
+results.compute_adsorption_energy(clean_surface_energy=-1000.0, gas_phase_energy=-10.0)
+results.to_csv()
+results.plot_adsorption_energy()
+```
+
+Use `gal analyze campaigns/WSe2_CO` for CSV, Excel, JSON, optimized-structure,
+and plot exports from the command line. See `examples/analyze_campaign.py`.
+
 Optional features and offline mode
 ----------------------------------
 

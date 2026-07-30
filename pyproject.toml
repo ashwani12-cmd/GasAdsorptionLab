@@ -31,6 +31,9 @@ dependencies = [
     "numpy",
     "ase",
     "PyYAML",
+    "pandas",
+    "matplotlib",
+    "openpyxl",
 ]
 
 [project.optional-dependencies]

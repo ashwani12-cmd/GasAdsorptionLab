@@ -26,6 +26,7 @@ __all__ = [
     "AdsorptionCampaign",
     "generate_campaign",
     "generate_wse2_co_campaign",
+    "CampaignResults",
     "export_site_markers",
 ]
 
@@ -68,6 +69,10 @@ def __getattr__(name: str):
     if name == "generate_wse2_co_campaign":
         from .campaign import generate_wse2_co_campaign
         return generate_wse2_co_campaign
+
+    if name == "CampaignResults":
+        from .results import CampaignResults
+        return CampaignResults
 
     if name == "export_site_markers":
         from .visualize import export_site_markers

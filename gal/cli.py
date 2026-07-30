@@ -9,6 +9,7 @@ import yaml
 
 from .campaign import AdsorptionCampaign
 from .qe import QEInputBuilder
+from .results import CampaignResults
 
 
 def campaign_from_config(filename: str | Path) -> AdsorptionCampaign:
@@ -41,7 +42,24 @@ def main(argv: list[str] | None = None) -> int:
     campaign_parser = subparsers.add_parser("campaign", help="generate a QE adsorption campaign")
     campaign_parser.add_argument("config")
     campaign_parser.add_argument("--overwrite", action="store_true")
+    analyze_parser = subparsers.add_parser("analyze", help="analyze completed QE campaign results")
+    analyze_parser.add_argument("directory")
+    analyze_parser.add_argument("--clean-surface-energy", type=float)
+    analyze_parser.add_argument("--gas-phase-energy", type=float)
     args = parser.parse_args(argv)
     if args.command == "campaign":
         campaign_from_config(args.config).generate(overwrite=args.overwrite)
+    if args.command == "analyze":
+        results = CampaignResults.from_directory(args.directory)
+        if args.clean_surface_energy is not None or args.gas_phase_energy is not None:
+            if args.clean_surface_energy is None or args.gas_phase_energy is None:
+                parser.error("--clean-surface-energy and --gas-phase-energy must be supplied together")
+            results.compute_adsorption_energy(args.clean_surface_energy, args.gas_phase_energy)
+        results.to_csv()
+        results.to_excel()
+        results.to_json()
+        results.export_optimized_structures()
+        if "AdsorptionEnergy" in results.dataframe:
+            results.plot_adsorption_energy()
+        print(f"Analyzed {len(results.dataframe)} calculations")
     return 0

@@ -6,6 +6,8 @@ All notable changes to GasAdsorptionLab are documented here.
 
 - Added campaign orchestration, CSV/JSON summaries, restart handling, status
   tracking, and the `gal campaign` command-line interface.
+- Added completed Quantum ESPRESSO campaign analysis, adsorption-energy
+  ranking, tabular exports, optimized-structure export, and `gal analyze`.
 
 ## 0.5.0
 
