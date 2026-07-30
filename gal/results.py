@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -106,10 +107,17 @@ class QuantumEspressoParser:
         pressure = self._pressure.findall(text)
         fermi = self._fermi.findall(text)
         magnetization = self._magnetization.findall(text)
+        text_lower = text.lower()
+        job_done = "job done." in text_lower
+        is_relax = "begin final coordinates" in text_lower or "bfgs" in text_lower
+        if is_relax:
+            converged = job_done and "bfgs converged" in text_lower
+        else:
+            converged = job_done and "convergence has been achieved" in text_lower
         return CalculationResult(
             energy=energies[-1] if energies else None,
             final_scf_energy=energies[-1] if energies else None,
-            converged="convergence has been achieved" in text.lower() or "job done" in text.lower(),
+            converged=converged,
             scf_iterations=max(iterations) if iterations else None,
             cpu_time=_duration_seconds(timing[-1][0]) if timing else None,
             wall_time=_duration_seconds(timing[-1][1]) if timing else None,
@@ -165,20 +173,56 @@ class CampaignResults:
             }
             records.append(record)
             if result.atoms is not None:
-                structures[str(unique_id)] = result.atoms
+                structures[str(job_dir)] = result.atoms
         columns = ["Directory", "Site", "UniqueSiteID", "Adsorbate", "Supercell", "Energy", "FinalSCFEnergy", "Converged", "SCFIterations", "CPUTime", "WallTime", "Pressure", "FermiEnergy", "Magnetization", "Orientation", "Height"]
         return cls(root, pd.DataFrame(records, columns=columns), structures)
 
+    @classmethod
+    def reference_energy(cls, output_file: str | Path, code: str = "qe") -> float | None:
+        """Parse a clean-surface or gas-phase output and return its energy in eV.
+
+        Use this to build the ``clean_surface_energy``/``gas_phase_energy``
+        arguments for :meth:`compute_adsorption_energy` from separately
+        converged calculations, so all three energies share the same (eV)
+        units as the campaign's parsed ``Energy`` column.
+        """
+        if code not in cls.parsers:
+            raise ValueError(f"Unsupported output code {code!r}. Available: {', '.join(cls.parsers)}")
+        return cls.parsers[code].parse(output_file).energy
+
     def compute_adsorption_energy(self, clean_surface_energy: float, gas_phase_energy: float) -> pd.DataFrame:
-        """Compute and store adsorption energies in eV from total energies."""
+        """Compute and store adsorption energies in eV from total energies.
+
+        ``clean_surface_energy`` and ``gas_phase_energy`` must already be in
+        eV, the same units as the parsed ``Energy`` column (Quantum ESPRESSO
+        outputs are converted from Ry to eV during parsing). Use
+        :meth:`reference_energy` to parse reference pw.out files so all three
+        energies share units.
+        """
+        energies = self.dataframe["Energy"].dropna()
+        if not energies.empty:
+            median_energy = energies.abs().median()
+            reference_magnitude = max(abs(clean_surface_energy), abs(gas_phase_energy))
+            if median_energy > 0 and reference_magnitude > 0 and median_energy / reference_magnitude > RY_TO_EV / 2:
+                warnings.warn(
+                    "clean_surface_energy/gas_phase_energy are much smaller in magnitude than the "
+                    "campaign's parsed energies (eV); they may still be in Ry. Use "
+                    "CampaignResults.reference_energy() to parse references in eV.",
+                    stacklevel=2,
+                )
         self.dataframe["AdsorptionEnergy"] = self.dataframe["Energy"] - clean_surface_energy - gas_phase_energy
         return self.dataframe
 
-    def rank_by_adsorption_energy(self) -> pd.DataFrame:
-        """Return converged structures ordered from most to least stable."""
+    def rank_by_adsorption_energy(self, only_converged: bool = True) -> pd.DataFrame:
+        """Return structures ordered from most to least stable adsorption energy.
+
+        By default, rows whose relaxation did not fully converge are excluded
+        so a half-optimized energy cannot rank as most stable.
+        """
         if "AdsorptionEnergy" not in self.dataframe:
             raise ValueError("Compute adsorption energies before ranking")
-        return self.dataframe.sort_values("AdsorptionEnergy", na_position="last").reset_index(drop=True)
+        data = self.dataframe[self.dataframe["Converged"]] if only_converged else self.dataframe
+        return data.sort_values("AdsorptionEnergy", na_position="last").reset_index(drop=True)
 
     def to_csv(self, filename: str | Path | None = None) -> Path:
         """Export the analysis dataframe as CSV."""
@@ -198,14 +242,18 @@ class CampaignResults:
         self.dataframe.to_json(path, orient="records", indent=2)
         return path
 
-    def plot_adsorption_energy(self, filename: str | Path | None = None) -> Path:
-        """Create an adsorption-energy-versus-site PNG plot."""
+    def plot_adsorption_energy(self, filename: str | Path | None = None, only_converged: bool = True) -> Path:
+        """Create an adsorption-energy-versus-site PNG plot.
+
+        By default, unconverged rows are excluded (see
+        :meth:`rank_by_adsorption_energy`).
+        """
         if "AdsorptionEnergy" not in self.dataframe:
             raise ValueError("Compute adsorption energies before plotting")
         import matplotlib.pyplot as plt
 
         path = Path(filename or self.directory / "AdsorptionEnergy_vs_Site.png")
-        data = self.rank_by_adsorption_energy().dropna(subset=["AdsorptionEnergy"])
+        data = self.rank_by_adsorption_energy(only_converged=only_converged).dropna(subset=["AdsorptionEnergy"])
         figure, axis = plt.subplots(figsize=(max(6, len(data) * 0.8), 4))
         labels = [f"{site}\n{identifier}" for site, identifier in zip(data["Site"], data["UniqueSiteID"])]
         axis.bar(labels, data["AdsorptionEnergy"])
@@ -221,9 +269,16 @@ class CampaignResults:
         root = Path(directory or self.directory / "optimized_structures")
         root.mkdir(parents=True, exist_ok=True)
         paths: list[Path] = []
-        for identifier, atoms in self._structures.items():
-            site = self.dataframe.loc[self.dataframe["UniqueSiteID"] == identifier, "Site"].iloc[0]
-            path = root / f"{site}_{identifier}.xyz"
+        for job_dir, atoms in self._structures.items():
+            rows = self.dataframe.loc[self.dataframe["Directory"] == job_dir]
+            if rows.empty:
+                site = Path(job_dir).name
+                identifier = site
+            else:
+                row = rows.iloc[0]
+                site = row["Site"]
+                identifier = row["UniqueSiteID"]
+            path = root / f"{site}_{identifier}_{Path(job_dir).name}.xyz"
             write(path, atoms)
             paths.append(path)
         return paths

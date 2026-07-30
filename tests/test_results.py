@@ -82,3 +82,75 @@ def test_results_cli_exports_analysis_files(tmp_path, capsys):
     assert (tmp_path / "results.json").exists()
     assert (tmp_path / "AdsorptionEnergy_vs_Site.png").exists()
     assert "Analyzed 1 calculations" in capsys.readouterr().out
+
+
+def test_export_optimized_structures_with_numeric_unique_site_id(tmp_path):
+    """Regression test for BUG 1: numeric unique_site_id used to raise IndexError."""
+    directory = tmp_path / "job"
+    directory.mkdir()
+    (directory / "metadata.json").write_text(json.dumps({"unique_site_id": 1, "site": "Top", "adsorbate": "CO"}))
+    (directory / "pw.out").write_text(QE_OUTPUT)
+    results = CampaignResults.from_directory(tmp_path)
+
+    exported = results.export_optimized_structures()
+
+    assert len(exported) == 1
+    assert exported[0].exists()
+
+
+def test_two_adsorbates_on_same_site_id_export_without_overwrite(tmp_path):
+    """Regression test for BUG 4: shared unique_site_id used to overwrite structures."""
+    for name, adsorbate in [("Top_CO", "CO"), ("Top_NH3", "NH3")]:
+        directory = tmp_path / name
+        directory.mkdir()
+        (directory / "metadata.json").write_text(
+            json.dumps({"unique_site_id": "id-Top", "site": "Top", "adsorbate": adsorbate})
+        )
+        (directory / "pw.out").write_text(QE_OUTPUT)
+    results = CampaignResults.from_directory(tmp_path)
+
+    exported = results.export_optimized_structures()
+
+    assert len(exported) == 2
+    assert len(set(exported)) == 2
+    assert all(path.exists() for path in exported)
+
+
+def test_compute_adsorption_energy_warns_on_ry_magnitude_references(tmp_path):
+    """Regression test for BUG 2: Ry-magnitude references silently mixed with eV energies."""
+    ry_scale_output = QE_OUTPUT.replace("-10.00000000 Ry", "-1000.00000000 Ry")
+    _job(tmp_path, "Top", "Top", output=ry_scale_output)
+    results = CampaignResults.from_directory(tmp_path)
+
+    with pytest.warns(UserWarning, match="Ry"):
+        results.compute_adsorption_energy(clean_surface_energy=-1000.0, gas_phase_energy=-10.0)
+
+
+def test_reference_energy_parses_output_in_ev(tmp_path):
+    output = tmp_path / "clean.out"
+    output.write_text(QE_OUTPUT)
+
+    assert CampaignResults.reference_energy(output) == pytest.approx(-10 * RY_TO_EV)
+
+
+def test_truncated_relax_without_job_done_is_not_converged(tmp_path):
+    """Regression test for BUG 3: SCF convergence text alone used to mark a killed job as converged."""
+    truncated = QE_OUTPUT.replace("JOB DONE.\n", "")
+    output = tmp_path / "pw.out"
+    output.write_text(truncated)
+    result = QuantumEspressoParser().parse(output)
+
+    assert result.converged is False
+
+
+def test_rank_by_adsorption_energy_excludes_unconverged_by_default(tmp_path):
+    _job(tmp_path, "Top", "Top")
+    _job(tmp_path, "Bridge", "Bridge", output=QE_OUTPUT.replace("JOB DONE.\n", ""))
+    results = CampaignResults.from_directory(tmp_path)
+    results.compute_adsorption_energy(clean_surface_energy=-100.0, gas_phase_energy=-20.0)
+
+    ranked = results.rank_by_adsorption_energy()
+    assert list(ranked["Site"]) == ["Top"]
+
+    unfiltered = results.rank_by_adsorption_energy(only_converged=False)
+    assert set(unfiltered["Site"]) == {"Top", "Bridge"}

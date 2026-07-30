@@ -2,6 +2,25 @@
 
 All notable changes to GasAdsorptionLab are documented here.
 
+## Unreleased
+
+### Fixed
+
+- `export_optimized_structures()` no longer raises `IndexError` for numeric
+  `unique_site_id` values, and no longer overwrites structures when multiple
+  adsorbates share a site: parsed structures are now keyed by job directory
+  instead of site id.
+- `compute_adsorption_energy()` now warns when `clean_surface_energy`/
+  `gas_phase_energy` look like they are still in Ry instead of eV. Added
+  `CampaignResults.reference_energy()` to parse reference energies in eV
+  directly from a pw.out file.
+- A relaxation killed before completion (e.g. at walltime) is no longer
+  marked `Converged`; `converged` now requires `JOB DONE.` plus the
+  appropriate final convergence marker (`bfgs converged` for relaxations,
+  `convergence has been achieved` for SCF-only runs). `rank_by_adsorption_energy()`
+  and `plot_adsorption_energy()` now exclude non-converged rows by default
+  (`only_converged=True`).
+
 ## 0.6.0
 
 - Added campaign orchestration, CSV/JSON summaries, restart handling, status

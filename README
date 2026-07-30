@@ -147,10 +147,16 @@ energies with `CampaignResults`:
 from gal import CampaignResults
 
 results = CampaignResults.from_directory("campaigns/WSe2_CO")
-results.compute_adsorption_energy(clean_surface_energy=-1000.0, gas_phase_energy=-10.0)
+clean_surface_energy = CampaignResults.reference_energy("campaigns/WSe2_clean/pw.out")
+gas_phase_energy = CampaignResults.reference_energy("campaigns/CO_gas/pw.out")
+results.compute_adsorption_energy(clean_surface_energy, gas_phase_energy)
 results.to_csv()
 results.plot_adsorption_energy()
 ```
+
+`reference_energy` parses a separately converged clean-surface or gas-phase
+`pw.out` and returns its energy in eV, the same units `compute_adsorption_energy`
+expects for both references (QE outputs are in Ry and converted internally).
 
 Use `gal analyze campaigns/WSe2_CO` for CSV, Excel, JSON, optimized-structure,
 and plot exports from the command line. See `examples/analyze_campaign.py`.
